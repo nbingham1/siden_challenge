@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <string.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -26,7 +27,7 @@ struct trie
 	}
 
 	string value;
-	trie *next[26];
+	unordered_map<char, trie*> next;
 	bool isEnd;
 
 	bool insert(string word)
@@ -38,31 +39,28 @@ struct trie
 			return true;
 		} else if (i == word.size()) {
 			trie *toAdd = new trie(value.substr(i));
-			for (int i = 0; i < 26; i++) {
-				toAdd->next[i] = next[i];
-				next[i] = nullptr;
-			}
+			toAdd->next = next;
+			next.clear();
 			toAdd->isEnd = isEnd;
-			next[value[i] - 'a'] = toAdd;
+			next.insert(pair<char, trie*>(value[i], toAdd));
 			isEnd = true;
 			value.erase(i);
 			return false;
 		} else if (i == value.size()) {
-			if (next[word[i] - 'a'] != nullptr) {
-				return next[word[i] - 'a']->insert(word.substr(i));
+			unordered_map<char, trie*>::iterator n = next.find(word[i]);
+			if (n != next.end()) {
+				return n->second->insert(word.substr(i));
 			} else {
-				next[word[i] - 'a'] = new trie(word.substr(i));
+				next.insert(pair<char, trie*>(word[i], new trie(word.substr(i))));
 				return false;
 			}
 		} else {
 			trie *toAdd = new trie(value.substr(i));
-			for (int i = 0; i < 26; i++) {
-				toAdd->next[i] = next[i];
-				next[i] = nullptr;
-			}
+			toAdd->next = next;
+			next.clear();
 			toAdd->isEnd = isEnd;
-			next[value[i] - 'a'] = toAdd;
-			next[word[i] - 'a'] = new trie(word.substr(i));
+			next.insert(pair<char, trie*>(value[i], toAdd));
+			next.insert(pair<char, trie*>(word[i], new trie(word.substr(i))));
 			isEnd = false;
 			value.erase(i);
 			return false;
@@ -71,21 +69,13 @@ struct trie
 
 	bool has(string word)
 	{
-		if (word.size() < value.size()) {
-			return false;
-		}
-
-		if (strncmp(word.c_str(), value.c_str(), value.size()) == 0) {
-			if (word.size() == value.size() and isEnd) {
-				return true;
-			} else if (next[word[value.size()] - 'a'] != nullptr) {
-				return next[word[value.size()] - 'a']->has(word.substr(value.size()));
-			} else {
-				return false;
-			}
-		} else {
-			return false;
-		}
+		return value.size() <= word.size()
+		   and strncmp(word.c_str(), value.c_str(), value.size()) == 0
+       and ((word.size() == value.size()
+		     and isEnd
+		     ) or (next.count(word[value.size()])
+		     and next[word[value.size()]]->has(word.substr(value.size()))
+		     ));
 	}
 
 	void print(string tab = "")
