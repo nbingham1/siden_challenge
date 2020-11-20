@@ -19,7 +19,15 @@ Then send GET or PUT requests to localhost:8080
 ## using the "uniq" utility
 
 ```
+make
 cat sample.txt | ./uniq <outfile>
+```
+
+Testing:
+
+```
+make test_uniq
+./test_uniq
 ```
 
 ## Design Decisions
