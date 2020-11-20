@@ -38,13 +38,17 @@ while 1:
 
 	# this implements the API
 	if req[0].startswith("GET"):
-		# GET should return the uniqued file	
-		output = 'HTTP/1.0 200 OK\nContent-type: text/html\n\n'
-		csock.send(output.encode('utf-8'))
+		# GET should return the uniqued file
 		# stream the file through the socket
-		with open("file.txt", 'r') as fptr:
-			for line in fptr:
-				csock.send(line.encode('utf-8'))
+		try:
+			with open("file.txt", 'r') as fptr:
+				output = 'HTTP/1.0 200 OK\nContent-type: text/html\n\n'
+				csock.send(output.encode('utf-8'))
+				for line in fptr:
+					csock.send(line.encode('utf-8'))
+		except:
+			output = 'HTTP/1.0 200 OK\nContent-type: text/html\n\n'
+			csock.send(output.encode('utf-8'))
 	elif req[0].startswith("PUT"):
 		# PUT should save the uniqued file to the disk
 		# Figure out the length of the input file from the http header
