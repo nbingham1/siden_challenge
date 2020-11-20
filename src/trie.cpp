@@ -33,6 +33,9 @@ trie::trie(string value, bool isEnd) {
 }
 
 trie::~trie() {
+	for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
+		delete i->second;
+	}
 	isEnd = false;
 	next.clear();
 }
