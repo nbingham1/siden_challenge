@@ -47,10 +47,12 @@ bool trie::insert(string word)
 	int i = 0;
 	while (i < word.size() and i < value.size() and word[i] == value[i]) i++;
 	
-	if (i == word.size() and i == value.size() and isEnd) {
+	if (i == word.size() and i == value.size()) {
 		// If they're the same and this node represents the end of a word, then the
 		// word is already in the dictionary and we return that we found the word.
-		return false;
+		bool result = not isEnd;
+		isEnd = true;
+		return result;
 	} else if (i == word.size()) {
 		// Otherwise, if the value at this node is longer than the input word.
 		// This happens when the inserted word is a substring of an already
@@ -132,9 +134,9 @@ bool trie::has(string word)
 void trie::print(string tab)
 {
 	cout << tab << value << endl;
-	for (int i = 0; i < 26; i++) {
-		if (next[i]) {
-			next[i]->print(tab + "\t");
+	for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
+		if (i->second) {
+			i->second->print(tab + "\t");
 		}
 	}
 }
