@@ -47,7 +47,7 @@ while 1:
 			n = 0
 			while n < length:
 				req = csock.recv(4096)
-				p1.communicate(req)
+				p1.stdin.write(req)
 				n += len(req)
 	csock.close()
 
