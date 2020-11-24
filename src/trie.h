@@ -34,6 +34,9 @@ struct trie
 	unordered_map<char, trie*> next;
 	bool isEnd;
 
+	int size(); // in bytes
+	void clear();
+
 	// Insert a word into the trie. Return false if the word was already in the
 	// trie.
 	bool insert(string word);
@@ -42,6 +45,10 @@ struct trie
 	bool has(string word);
 	
 	// Prints a representation of the trie for debugging purposes.
+	void print(ostream &str, string tab = "");
 	void print(string tab = "");
+	
+	void write(ostream &str);
+	void read(istream &str);
 };
 

@@ -42,12 +42,12 @@ while 1:
 		# stream the file through the socket
 		try:
 			with open("file.txt", 'r') as fptr:
-				output = 'HTTP/1.0 200 OK\nContent-type: text/html\n\n'
+				output = 'HTTP/1.0 200 OK\nContent-type: text/plain; charset=UTF-8\n\n'
 				csock.send(output.encode('utf-8'))
 				for line in fptr:
 					csock.send(line.encode('utf-8'))
 		except:
-			output = 'HTTP/1.0 200 OK\nContent-type: text/html\n\n'
+			output = 'HTTP/1.0 200 OK\nContent-type: text/plain; charset=UTF-8\n\n'
 			csock.send(output.encode('utf-8'))
 	elif req[0].startswith("PUT"):
 		# PUT should save the uniqued file to the disk
@@ -65,7 +65,11 @@ while 1:
 				req = csock.recv(4096)
 				p1.stdin.write(req)
 				n += len(req)
-	
+		output = 'HTTP/1.0 200 OK\nContent-type: text/plain; charset=UTF-8\n\n'
+		csock.send(output.encode('utf-8'))
+	else:
+		output = 'HTTP/1.0 404 Not Found\n\n'
+		csock.send(output.encode('utf-8'))
 	# clean up the connection	
 	csock.close()
 

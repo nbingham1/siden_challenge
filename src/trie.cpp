@@ -40,6 +40,36 @@ trie::~trie() {
 	next.clear();
 }
 
+int trie::size()
+{
+	int result = value.size();
+	if (next.size() > 0) {
+		result += 1;
+		bool first = true;
+		for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
+			if (i->second) {
+				if (!first) {
+					result += 1;
+				}
+				first = false;
+				result += i->second->size();
+			}
+		}
+		result += 1;
+	}
+	return result;
+}
+
+void trie::clear()
+{
+	for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
+		delete i->second;
+	}
+	isEnd = false;
+	next.clear();
+	value = "";
+}
+
 // Insert a word into the trie. Return false if the word was already in the
 // trie.
 bool trie::insert(string word)
@@ -134,13 +164,100 @@ bool trie::has(string word)
 }
 
 // Prints a representation of the trie for debugging purposes.
-void trie::print(string tab)
+void trie::print(ostream &str, string tab)
 {
-	cout << tab << value << endl;
+	str << tab << value << endl;
 	for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
 		if (i->second) {
-			i->second->print(tab + "\t");
+			i->second->print(str, tab + "\t");
 		}
+	}
+}
+
+void trie::print(string tab)
+{
+	print(cout, tab);
+}
+
+void trie::write(ostream &str)
+{
+	static const char stx0 = '('; // start of text
+	static const char stx1 = '['; // start of text
+	static const char etx = ')'; // end of text
+	static const char gs  = ','; // group separator
+
+	str << value;
+	if (not next.empty()) {
+		if (isEnd) {
+			str << stx1;
+		} else {
+			str << stx0;
+		}
+		bool first = true;
+		for (unordered_map<char, trie*>::iterator i = next.begin(); i != next.end(); i++) {
+			if (i->second) {
+				if (!first) {
+					str << gs;
+				}
+				first = false;
+				i->second->write(str);
+			}
+		}
+		str << etx;
+	}
+}
+
+void trie::read(istream &str)
+{
+	static const char stx0 = '(';//0x02; // start of text
+	static const char stx1 = '[';//0x02; // start of text
+	static const char etx = ')';//0x03; // end of text
+	static const char gs  = ',';//0x1D; // group separator
+	
+	string word;
+	char c = str.peek();
+	while (((word.size() < value.size() and c == value[word.size()])
+	   or (next.empty() and not isEnd))
+    and c != stx0 and c != stx1 and c != gs and c != etx and c != '\0') {
+		word += str.get();
+		c = str.peek();
+	}
+
+	if (next.empty() and not isEnd) {
+		value = word;
+		isEnd = (c != stx0);
+	} else if (word.size() < value.size()) {
+		trie *toAdd = new trie(value.substr(word.size()), isEnd);
+		toAdd->next = next;
+
+		// This node now designates the end of the newly inserted word, the next
+		// map now only stores the newly inserted child node.
+		isEnd = (c != stx0);
+		next.clear();
+		next.insert(pair<char, trie*>(value[word.size()], toAdd));
+
+		// This node must now only contain the last part of the newly inserted word.
+		value.erase(word.size());
+	}
+
+	if (c == stx0 or c == stx1) {
+		do {
+			c = str.get();
+			c = str.peek();
+			unordered_map<char, trie*>::iterator n = next.find(c);
+			if (n == next.end()) {
+				n = next.insert(pair<char, trie*>(c, new trie("", false))).first;
+			}
+			n->second->read(str);
+			c = str.peek();
+		}	while (c == gs);
+		c = str.get();
+	} else if (c != etx and c != gs and c != '\0') {
+		unordered_map<char, trie*>::iterator n = next.find(c);
+		if (n == next.end()) {
+			n = next.insert(pair<char, trie*>(c, new trie("", false))).first;
+		}
+		n->second->read(str);
 	}
 }
 
