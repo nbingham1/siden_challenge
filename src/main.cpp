@@ -10,7 +10,7 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
-	trie t;
+	trie<bool> t;
 	ofstream tofile;
 	
 	if (argc > 1) {
@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 			// Loop through all of the lines from stdin and add them to the trie if
 			// they weren't already in the trie, then we also save the to the file.
 			while (getline(cin, word)) {
-				if (t.insert(word)) {
+				if (t.insert(word, true)) {
 					tofile << word << endl;
 				}
 			}

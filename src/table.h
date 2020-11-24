@@ -1,42 +1,57 @@
 #pragma once
 
 #include <string>
-#include "serial.h"
+#include <fstream>
 
 using namespace std;
 
+template <class value_type>
 struct table
 {
-	table();
-	table(int stride, const char *name);
-	~table();
+	table()
+	{
+		size = 0;
+		stride = 0;
+	}
 
-	FILE *fptr;
+	table(int stride, const char *name)
+	{
+		this->stride = stride;
+		file.open(name);
+		file.seekp(0, ios_base::end);
+		size = file.tellp()/stride;
+	}
+
+	~table()
+	{
+		if (file.is_open()) {
+			file.close();
+			size = 0;
+			stride = 0;
+		}
+	}
+
+	fstream file;
 	int stride;
 	int size;
 
-	template <class value_type>
 	void write(int index, const value_type &value)
 	{
 		if (index > size) {
-			fseek(fptr, 0, SEEK_END);
-			char pad = '\0';
-			fwrite(&pad, 1, index*stride - size, fptr);
+			file.seekp(0, ios_base::end);
+			for (int i = 0; i < index*stride - size; i++) {
+				file.put('\0');
 		}
 
-		string str = serialize(value);
-		fseek(fptr, index*stride, SEEK_SET);
-		fwrite(str.c_str(), str.size(), 1, fptr);
+		file.seekp(index*stride, ios_base::beg);
+		file << value;
 	}
 
-	template <class value_type>
-	bool read(value_type *value, int index)
+	bool read(int index, value_type &value)
 	{
 		if (index < size) {
-			string str(stride, '\0');
-			fseek(fptr, index*stride, SEEK_SET);
-			fread(&str[0], sizeof(char), stride, fptr);
-			deserialize<value_type>(value, str);
+			file.seekp(index*stride, ios_base::beg);
+			file >> value;
 			return true;
 		} else {
 			return false;
