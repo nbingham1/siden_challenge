@@ -5,7 +5,7 @@
 
 using namespace std;
 
-template <class value_type>
+template <typename value_type>
 struct table
 {
 	table()
@@ -14,7 +14,7 @@ struct table
 		stride = 0;
 	}
 
-	table(int stride, const char *name)
+	table(const char *name, unsigned long long stride)
 	{
 		this->stride = stride;
 		file.open(name);
@@ -32,7 +32,7 @@ struct table
 	}
 
 	fstream file;
-	int stride;
+	unsigned long long stride;
 	int size;
 
 	void write(int index, const value_type &value)
@@ -41,6 +41,7 @@ struct table
 			file.seekp(0, ios_base::end);
 			for (int i = 0; i < index*stride - size; i++) {
 				file.put('\0');
+			}
 		}
 
 		file.seekp(index*stride, ios_base::beg);

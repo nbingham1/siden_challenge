@@ -3,6 +3,7 @@
 #include <string>
 #include <string.h>
 #include <unordered_map>
+#include <sstream>
 
 using namespace std;
 
@@ -25,13 +26,19 @@ using namespace std;
  *     / \
  *    i   ello
  */
-template <class value_type>
+template <typename value_type>
 struct trie
 {
-	trie(string key = "", value_type *value = nullptr)
+	trie(string key = "")
 	{
 		this->key = key;
-		this->value = value;
+		this->value = nullptr;
+	}
+
+	trie(string key, const value_type &value)
+	{
+		this->key = key;
+		this->value = new value_type(value);
 	}
 
 	~trie()
@@ -40,31 +47,16 @@ struct trie
 	}
 
 	using child_iterator = typename unordered_map<char, trie<value_type>*>::iterator;
+	using child_const_iterator = typename unordered_map<char, trie<value_type>*>::const_iterator;
+
+	template <typename... arg_types>
+	using condition_function = bool(const value_type&, arg_types...);
 
 	string key;
 	value_type *value;
-	
-	unordered_map<char, trie<value_type>*> child;
+	unsigned int found:1;
 
-	int serialized_size()
-	{
-		int result = key.size();
-		if (child.size() > 0) {
-			result += 1;
-			bool first = true;
-			for (child_iterator i = child.begin(); i != child.end(); i++) {
-				if (i->second) {
-					if (!first) {
-						result += 1;
-					}
-					first = false;
-					result += i->second->serialized_size();
-				}
-			}
-			result += 1;
-		}
-		return result;
-	}
+	unordered_map<char, trie<value_type>*> child;
 
 	void clear()
 	{
@@ -80,7 +72,7 @@ struct trie
 
 	// Insert a word into the trie. Return false if the word was already in the
 	// trie.
-	bool insert(string key, value_type *value)
+	bool insert(string key, const value_type &value = value_type())
 	{
 		// First, we have to compare the prefix stored in this node against the
 		// first part of the input word. Our goal is to determine the index at
@@ -92,7 +84,7 @@ struct trie
 			// If they're the same and this node represents the end of a word, then the
 			// word is already in the dictionary and we return that we found the word.
 			bool result = (this->value == nullptr);
-			this->value = value;
+			this->value = new value_type(value);
 			return result;
 		} else if (i == key.size()) {
 			// Otherwise, if the key at this node is longer than the input word.
@@ -102,12 +94,13 @@ struct trie
 			
 			// Create a child node for the second half of the key of this node and move all 
 			// other children of this node to that new child node.
-			trie<value_type> *toAdd = new trie<value_type>(this->key.substr(i), this->value);
+			trie<value_type> *toAdd = new trie<value_type>(this->key.substr(i));
+			toAdd->value = this->value;
 			toAdd->child = this->child;
 
 			// This node now designates the end of the newly inserted word, the child
 			// map now only stores the newly inserted child node.
-			this->value = value;
+			this->value = new value_type(value);
 			this->child.clear();
 			this->child.insert(pair<char, trie<value_type>*>(this->key[i], toAdd));
 
@@ -136,7 +129,8 @@ struct trie
 
 			// So, create a new node to store the remaining half of this node's
 			// prefix.
-			trie<value_type> *toAdd = new trie<value_type>(this->key.substr(i), this->value);
+			trie<value_type> *toAdd = new trie<value_type>(this->key.substr(i));
+			toAdd->value = this->value;
 			toAdd->child = this->child;
 			
 			// Then, move all of the children to that new node and add the decision
@@ -149,11 +143,6 @@ struct trie
 			this->key.erase(i);
 			return true;
 		}
-	}
-
-	bool insert(string key, const value_type &value)
-	{
-		return insert(key, new value_type(value));
 	}
 
 	// Check if a word is in the trie
@@ -181,41 +170,62 @@ struct trie
 			return nullptr;
 		}
 	}
+
+	template <typename... arg_types>
+	bool set_condition(condition_function<arg_types...> *cmp = nullptr, arg_types... args)
+	{
+		found = 0;
+
+		for (child_iterator i = this->child.begin(); i != this->child.end(); i++) {
+			if (i->second != nullptr and i->second->set_condition(cmp, args...)) {
+				found = 1;
+			}
+		}
+
+		if (cmp == nullptr or (this->value != nullptr and cmp(*this->value, args...))) {
+			found = 1;
+		}
+
+		return found;
+	}
 };
 
-template <class value_type>
-ostream &operator<<(ostream &str, trie<value_type> *t)
+template <typename value_type>
+ostream &operator<<(ostream &str, const trie<value_type> &t)
 {
 	static const char stx = '('; // start of text
 	static const char etx = ')'; // end of text
 	static const char gs  = ','; // group separator
 	static const char rs = ':'; // start of text
 
-	str << t->key;
-	if (t->value != nullptr) {
-		str << rs << *t->value;
+	str << t.key;
+	if (t.value != nullptr) {
+		str << rs << *t.value;
 	}
 
-	if (not t->child.empty()) {
-		str << stx;
+	if (not t.child.empty() and t.found == 1) {
 		bool first = true;
-		for (typename trie<value_type>::child_iterator i = t->child.begin(); i != t->child.end(); i++) {
-			if (i->second) {
+		for (typename trie<value_type>::child_const_iterator i = t.child.begin(); i != t.child.end(); i++) {
+			if (i->second and i->second->found == 1) {
 				if (!first) {
 					str << gs;
+				} else {
+					str << stx;
+					first = false;
 				}
-				first = false;
-				str << i->second;
+				str << *(i->second);
 			}
 		}
-		str << etx;
+		if (!first) {
+			str << etx;
+		}
 	}
 
 	return str;
 }
 
-template <class value_type>
-istream &operator>>(istream &str, trie<value_type> *t)
+template <typename value_type>
+istream &operator>>(istream &str, trie<value_type> &t)
 {
 	static const char stx = '('; // start of text
 	static const char etx = ')'; // end of text
@@ -224,35 +234,35 @@ istream &operator>>(istream &str, trie<value_type> *t)
 
 	string key;
 	char c = str.peek();
-	while (((key.size() < t->key.size() and c == t->key[key.size()])
-	   or (t->child.empty() and t->value == nullptr))
+	while (((key.size() < t.key.size() and c == t.key[key.size()])
+	   or (t.child.empty() and t.value == nullptr))
     and c != stx and c != rs and c != gs and c != etx and c != '\0') {
 		key += str.get();
 		c = str.peek();
 	}
 
-	if (t->child.empty() and t->value == nullptr) {
-		t->key = key;
-	} else if (key.size() < t->key.size()) {
-		trie<value_type> *toAdd = new trie<value_type>(t->key.substr(key.size()), t->value);
-		toAdd->child = t->child;
+	if (t.child.empty() and t.value == nullptr) {
+		t.key = key;
+	} else if (key.size() < t.key.size()) {
+		trie<value_type> *toAdd = new trie<value_type>(t.key.substr(key.size()), t.value);
+		toAdd->child = t.child;
 
-		// This node now designates the end of the newly inserted key, the t->child
-		// map now only stores the newly inserted t->child node.
+		// This node now designates the end of the newly inserted key, the t.child
+		// map now only stores the newly inserted t.child node.
 		
-		t->child.clear();
-		t->child.insert(pair<char, trie<value_type>*>(t->key[key.size()], toAdd));
+		t.child.clear();
+		t.child.insert(pair<char, trie<value_type>*>(t.key[key.size()], toAdd));
 
 		// This node must now only contain the last part of the newly inserted key.
-		t->key.erase(key.size());
+		t.key.erase(key.size());
 	}
 
 	if (c == rs) {
 		str.get();
-		if (t->value == nullptr) {
-			t->value = new value_type();
+		if (t.value == nullptr) {
+			t.value = new value_type();
 		}
-		str >> *t->value;
+		str >> *t.value;
 		c = str.peek();
 	}
 
@@ -260,23 +270,22 @@ istream &operator>>(istream &str, trie<value_type> *t)
 		do {
 			c = str.get();
 			c = str.peek();
-			typename trie<value_type>::child_iterator n = t->child.find(c);
-			if (n == t->child.end()) {
-				n = t->child.insert(pair<char, trie<value_type>*>(c, new trie<value_type>("", nullptr))).first;
+			typename trie<value_type>::child_iterator n = t.child.find(c);
+			if (n == t.child.end()) {
+				n = t.child.insert(pair<char, trie<value_type>*>(c, new trie<value_type>("", nullptr))).first;
 			}
 			str >> n->second;
 			c = str.peek();
 		}	while (c == gs);
 		c = str.get();
 	} else if (c != etx and c != gs and c != '\0') {
-		typename trie<value_type>::child_iterator n = t->child.find(c);
-		if (n == t->child.end()) {
-			n = t->child.insert(pair<char, trie<value_type>*>(c, new trie<value_type>("", nullptr))).first;
+		typename trie<value_type>::child_iterator n = t.child.find(c);
+		if (n == t.child.end()) {
+			n = t.child.insert(pair<char, trie<value_type>*>(c, new trie<value_type>("", nullptr))).first;
 		}
-		str >> n->second;
+		str >> *(n->second);
 	}
 
 	return str;
 }
-
 
